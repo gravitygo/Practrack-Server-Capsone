@@ -3,10 +3,13 @@ const admin = require("firebase-admin");
 
 exports.viewAccount = async ({ userID }) => {
   const query = `
-    SELECT "u".*, "s".*, "f".*
+    SELECT "u".*, "s".*, "f".*, c."companyName",
+    TO_CHAR(s."startDate", 'Mon DD, YYYY') AS "startDate",
+    TO_CHAR(s."endDate", 'Mon DD, YYYY') AS "endDate"
     FROM "practrack"."Users" "u"
     JOIN "practrack"."Students" "s" ON "u"."userID" = "s"."userID"
     LEFT JOIN "practrack"."FieldOfInterest" "f" ON "s"."fieldID" = "f"."fieldID"
+    LEFT JOIN practrack."CompanyList" c ON s."companyID" = c."companyID" 
     WHERE "u"."userID" = $1`;
   const params = [userID];
   const { rows } = await db.query(query, params);
@@ -56,6 +59,7 @@ exports.updateAccount = async ({
   addrCity,
   workSetup,
   jobPosition,
+  allowance,
 }) => {
   const query = `
   UPDATE "practrack"."Students"
@@ -67,8 +71,9 @@ exports.updateAccount = async ({
     "workSetup" = $5,
     "lastEditedBy" = $6,
     "dateLastEdited" = now(),
-    "jobPrefID" = $7
-  WHERE "userID" = $8;`;
+    "jobPrefID" = $7,
+    "allowance" = $8
+  WHERE "userID" = $9;`;
 
   const params = [
     fieldID,
@@ -78,6 +83,7 @@ exports.updateAccount = async ({
     workSetup,
     userID,
     jobPosition,
+    allowance,
     userID,
   ];
 
@@ -99,11 +105,20 @@ exports.getEmail = async ({ userID }) => {
 exports.getUsersWithPhase = async () => {
   const query = `
   SELECT 
-    *, 
-    TO_CHAR("startDate", 'Mon DD, YYYY') AS "formattedStartDate",
-    TO_CHAR("endDate", 'Mon DD, YYYY') AS "formattedEndDate"
-  FROM practrack.student_ojt_phase_information`;
+    *
+  FROM practrack.student_ojt_phase_info`;
   const { rows } = await db.query(query);
+  return rows;
+};
+
+exports.getUsersWithSpecificPhase = async (phaseId) => {
+  const query = `
+  SELECT 
+    *
+  FROM practrack.student_ojt_phase_info
+  WHERE "ojtPhaseID" = $1`;
+  const params = [phaseId];
+  const { rows } = await db.query(query, params);
   return rows;
 };
 
@@ -111,7 +126,7 @@ exports.getCurrentUsersWithPhase = async (userId) => {
   const query = `
   SELECT 
     *
-  FROM practrack.student_ojt_phase_information
+  FROM practrack.student_ojt_phase_info
   WHERE "createdBy" like $1`;
   const params = [userId];
   const { rows } = await db.query(query, params);
@@ -119,27 +134,41 @@ exports.getCurrentUsersWithPhase = async (userId) => {
 };
 
 exports.setStudent = async (uid) => {
-  console.log(uid);
   await admin.auth().setCustomUserClaims(uid, { role: "student" });
 };
 
 exports.createCoordinator = async ({ email }) => {
   var success;
   var createdUID;
+
+  // Generate random string of alphanumeric characters
+  const upperCase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const lowerCase = "abcdefghijklmnopqrstuvwxyz";
+  const numbers = "0123456789";
+  const specialChars = "!@#$%^&*()_+[]{}|;:,.<>?";
+
+  const allChars = upperCase + lowerCase + numbers + specialChars;
+
+  let randomString = "";
+  for (let i = 0; i < 8; i++) {
+    const randomIndex = Math.floor(Math.random() * allChars.length);
+    randomString += allChars[randomIndex];
+  }
+
   await admin
     .auth()
     .createUser({
       email: email,
-      password: "12345678",
+      password: randomString,
       disabled: false,
     })
     .then((userRecord) => {
-      console.log("Successfully created new user:", userRecord.uid);
+      console.log("Successfully created new user");
       createdUID = userRecord.uid;
       success = true;
     })
     .catch((error) => {
-      console.log("Error creating new user:", error);
+      console.error(error);
       success = false;
       createdUID = 0;
     });
@@ -190,7 +219,6 @@ exports.registerCoordinator = async ({
 };
 
 exports.setCoordinator = async (uid) => {
-  console.log(uid);
   await admin.auth().setCustomUserClaims(uid, { role: "coordinator" });
 };
 
@@ -215,11 +243,11 @@ exports.deleteAccount = async (user) => {
     .then(() => {
       // UPDATE SUPABASE
       db.query(query, params);
-      console.log("Account deleted: ", uid);
+      console.log("Account deleted");
       success = true;
     })
     .catch((error) => {
-      console.log("Error deleting account:", error);
+      console.error(error);
       success = false;
     });
 
@@ -229,30 +257,64 @@ exports.deleteAccount = async (user) => {
 exports.getUserByRole = async (userId, role) => {
   const query = `
   SELECT
-    "userID",
-    CONCAT("firstName", ' ', "lastName") AS "fullName"
+    u."userID" AS "id",
+    CONCAT(u."firstName", ' ', u."lastName") AS "name"
   FROM
-    practrack."Users"
+    practrack."Users" u
+  LEFT JOIN
+    practrack."Students" s ON u."userID" = s."userID"
+  LEFT JOIN
+    practrack."Lookup" l ON s."AcademicTerm" = l."lookupID"
   WHERE
-    "isActive" = true
-    AND lower("roles") != $1
-    AND NOT exists (
-      SELECT
-        coordinator AS "userID"
-      FROM
-        practrack."Chats"
-      WHERE
-      "${role}" = $2
-        AND practrack."Users"."userID" = practrack."Chats".${
-          role == "student" ? "coordinator" : "student"
-        }
+    u."isActive" = true
+    AND lower(u."roles") != $1
+    AND (
+      lower($1) != 'coordinator'
+      OR (lower($1) = 'coordinator' AND l."isActive" = true)
     )
-  ORDER BY
-    "lastName",
-    "firstName";
+    AND u."userID" NOT IN (
+      SELECT m."userID"
+      FROM practrack."ChatMembers" m
+      JOIN practrack."ChatRooms" cr ON m."chatID" = cr."chatID"
+      WHERE m."userID" = u."userID"
+      AND cr."isGroup" = false
+      AND cr."chatID" IN (
+        SELECT cm."chatID"
+        FROM practrack."ChatMembers" cm
+        WHERE cm."userID" = $2
+      )
+    )
+  ORDER BY LOWER(u."lastName"), LOWER(u."firstName");
   `;
 
   const params = [role, userId];
   const { rows } = await db.query(query, params);
   return rows;
+};
+
+exports.saveCriteria = async (userID, criteria) => {
+  const query = `
+  UPDATE "practrack"."Students"
+  SET 
+    "prefRank" = $1
+  WHERE "userID" = $2;`;
+
+  const params = [criteria, userID];
+
+  const { rows } = await db.query(query, params);
+
+  return { rows };
+};
+
+exports.getCriteria = async (userID) => {
+  const query = `
+  SELECT "prefRank"
+  FROM "practrack"."Students"
+  WHERE "userID" = $1;`;
+
+  const params = [userID];
+
+  const { rows } = await db.query(query, params);
+
+  return { rows };
 };

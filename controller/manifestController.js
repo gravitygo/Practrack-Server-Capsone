@@ -2,7 +2,6 @@ const ManifestService = require("../services/manifestService");
 
 exports.getOptions = async (req, res) => {
   try {
-    console.log(req.params);
     const options = await ManifestService.getOptions(req.params.type);
     res.send(options);
   } catch (error) {

@@ -10,8 +10,8 @@ exports.getCompanyEvalsData = async (req, res) => {
 
     // NOT TESTED
     let evalCounts = 0;
-    if (numStudents > 0) {
-      evalCounts = CompanyEvalsService.getEvalCounts(req.query.term);
+    if (numStudents.post_deployment_interns > 0) {
+      evalCounts = await CompanyEvalsService.getEvalCounts(req.query.term);
     }
 
     const values = [grades, numStudents, evalCounts, evalStats];

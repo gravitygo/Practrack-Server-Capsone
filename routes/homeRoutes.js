@@ -5,4 +5,5 @@ const HomeController = require("../controller/homeController");
 
 router.get("/coor", HomeController.getValues);
 router.get("/student", HomeController.getStudentHome);
+router.get("/notifs", HomeController.getNotifs);
 module.exports = router;

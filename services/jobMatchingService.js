@@ -29,8 +29,7 @@ exports.getCompanyDB = async () => {
   const query = `SELECT "c".*, "l"."value" AS worksetupstr
   FROM "practrack"."CompanyList" "c"
    LEFT JOIN 
-      "practrack"."Lookup" "l" ON "c"."workSetup" = "l"."lookupID"
-  WHERE "dssAveRating" IS NOT NULL;`;
+      "practrack"."Lookup" "l" ON "c"."workSetup" = "l"."lookupID";`;
   const { rows } = await db.query(query);
   return rows;
 };
@@ -39,15 +38,17 @@ exports.getStudentDB = async () => {
   const query = `
     SELECT "s".*, "u"."lastName", "u"."firstName", "f"."fieldName"
     FROM 
-        "practrack"."Students" "s"
+      "practrack"."Students" "s"
     JOIN 
-        "practrack"."Users" "u" ON "s"."userID" = "u"."userID"
+      "practrack"."Users" "u" ON "s"."userID" = "u"."userID"
+    JOIN
+      "practrack"."Lookup" "l" ON "s"."AcademicTerm" = "l"."lookupID" AND "l"."isActive" = true
     LEFT JOIN 
-        "practrack"."FieldOfInterest" "f" ON "s"."fieldID" = "f"."fieldID"          
+      "practrack"."FieldOfInterest" "f" ON "s"."fieldID" = "f"."fieldID"          
     WHERE 
-        "ojtPhase" = 'Pre-Deployment'
+      "ojtPhase" = 'Pre-Deployment'
     ORDER BY 
-      "u"."lastName" ASC`;
+      LOWER("u"."lastName") ASC`;
   const { rows } = await db.query(query);
   return rows;
 };

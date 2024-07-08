@@ -3,51 +3,32 @@ const router = express.Router();
 
 const AnnouncementController = require("../controller/announcementController");
 
-// All Announcements
-router.get("/:id/coor", AnnouncementController.viewAnnouncements);
+// View All Announcements = STUDENT
+router.get("/:id/student", AnnouncementController.getStudentProfile);
 router.get(
-  "/:id/coor/:batch",
-  AnnouncementController.viewFilteredAnnouncements
+  "/:id/student/:batch",
+  AnnouncementController.viewBatchAnnouncements
 );
-router.get("/:id", AnnouncementController.getStudentProfile);
-router.get("/:id/:batch", AnnouncementController.viewBatchAnnouncements);
+
+// View All Announcements = COOR
+router.get("/coor", AnnouncementController.viewAnnouncements);
+router.get("/coor/:batch", AnnouncementController.viewFilteredAnnouncements);
+
+// View One Announcement
 router.get(
-  "/:id/coor/:announcementID/view",
+  "/:id/:announcementID/view/:role",
   AnnouncementController.viewAnnouncement
 );
-router.get(
-  "/:id/:announcementID/view",
-  AnnouncementController.viewAnnouncement
-);
+
+// CRUD
+router.post("/read/:announcementId/:userId", AnnouncementController.setRead);
+router.post("/:id/add", AnnouncementController.addAnnouncement);
 router.post(
-  "/:id/coor/addAnnouncement",
-  AnnouncementController.addAnnouncement
-);
-router.post(
-  "/:id/coor/:announcementID/save",
+  "/:id/:announcementID/save",
   AnnouncementController.saveAnnouncement
 );
 router.delete(
-  "/:id/coor/:announcementID",
+  "/:id/:announcementID/delete",
   AnnouncementController.deleteAnnouncement
 );
-
-// Announcement Details
-router.get(
-  "/announcementDetails/:announcementID",
-  AnnouncementController.viewAnnouncement
-);
-router.get(
-  "/:id/announcementDetails/:announcementID",
-  AnnouncementController.viewAnnouncement
-);
-router.post(
-  "/announcementDetails/:announcementID/save",
-  AnnouncementController.saveAnnouncement
-);
-router.delete(
-  "/announcementDetails/:announcementID",
-  AnnouncementController.deleteAnnouncement
-);
-
 module.exports = router;

@@ -1,40 +1,6 @@
 const AnnouncementService = require("../services/announcementService");
 
-exports.addAnnouncement = async (req, res) => {
-  try {
-    const newAnnouncement = await AnnouncementService.addAnnouncement(req.body);
-    res.json({ announcement: newAnnouncement });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-exports.viewAnnouncements = async (req, res) => {
-  try {
-    const userID = req.params.id;
-    const getAnnouncements = await AnnouncementService.viewAnnouncements({
-      userID,
-    });
-    res.json({ announcements: getAnnouncements });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-exports.viewFilteredAnnouncements = async (req, res) => {
-  try {
-    const userID = req.params.id;
-    const batch = req.params.batch;
-    const getAnnouncements =
-      await AnnouncementService.viewFilteredAnnouncements({
-        userID,
-        batch,
-      });
-    res.json({ announcements: getAnnouncements });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
+// View All Announcements = STUDENT
 
 exports.getStudentProfile = async (req, res) => {
   try {
@@ -51,8 +17,10 @@ exports.getStudentProfile = async (req, res) => {
 exports.viewBatchAnnouncements = async (req, res) => {
   try {
     const batch = req.params.batch;
+    const uid = req.params.id;
     const getAnnouncements = await AnnouncementService.viewBatchAnnouncements({
       batch,
+      uid,
     });
     res.json({ announcements: getAnnouncements });
   } catch (error) {
@@ -60,13 +28,75 @@ exports.viewBatchAnnouncements = async (req, res) => {
   }
 };
 
+// View All Announcements = COOR
+
+exports.viewAnnouncements = async (req, res) => {
+  try {
+    const userID = req.params.id;
+    const getAnnouncements = await AnnouncementService.viewAnnouncements();
+    res.json({ announcements: getAnnouncements });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.viewFilteredAnnouncements = async (req, res) => {
+  try {
+    const userID = req.params.id;
+    const batch = req.params.batch;
+    const getAnnouncements =
+      await AnnouncementService.viewFilteredAnnouncements({
+        batch,
+      });
+    res.json({ announcements: getAnnouncements });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// View One Announcement
 exports.viewAnnouncement = async (req, res) => {
   try {
     const announcementID = req.params.announcementID;
-    const viewAnnouncement = await AnnouncementService.viewAnnouncement({
-      announcementID,
+    const uid = req.params.id;
+    const role = req.params.role;
+
+    if (role == "student") {
+      const viewAnnouncement =
+        await AnnouncementService.viewAnnouncementStudent({
+          announcementID,
+          uid,
+        });
+      res.json({ announcement: viewAnnouncement });
+    } else {
+      const viewAnnouncement = await AnnouncementService.viewAnnouncementCoor({
+        announcementID,
+      });
+      res.json({ announcement: viewAnnouncement });
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// CRUD
+
+exports.setRead = async (req, res) => {
+  try {
+    const read = await AnnouncementService.setRead({
+      announcementId: req.params.announcementId,
+      userId: req.params.userId,
     });
-    res.json({ announcement: viewAnnouncement });
+    res.json(read);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.addAnnouncement = async (req, res) => {
+  try {
+    const newAnnouncement = await AnnouncementService.addAnnouncement(req.body);
+    res.json({ announcement: newAnnouncement });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

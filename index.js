@@ -17,6 +17,7 @@ const companyEvalsRoutes = require("./routes/companyEvalsRoutes");
 const termRoutes = require("./routes/termRoutes");
 const coorTurnoverRoutes = require("./routes/coorTurnoverRoutes");
 const inboxRoutes = require("./routes/inboxRoutes");
+const batchRoutes = require("./routes/batchRoutes");
 
 const app = express();
 app.use(cors({ origin: true }));
@@ -38,6 +39,7 @@ app.use("/companyEvaluations", companyEvalsRoutes);
 app.use("/term", termRoutes);
 app.use("/coorAccts", coorTurnoverRoutes);
 app.use("/inbox", inboxRoutes);
+app.use("/batch", batchRoutes);
 
 app.listen(config.port || 2000, () => {
   console.log(`Listening on port ${config.port || 2000}`);

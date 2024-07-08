@@ -2,7 +2,7 @@ const { google } = require("googleapis");
 const fs = require("fs");
 
 const SERVICE_ACCOUNT_KEY_FILE = "./sheetsAccountKey.json";
-const RESPONSES_SHEET_ID = "14WCeU_Jew4H3BqADMQ7_qG8okjkQywSzdf99jO1v-ok";
+const RESPONSES_SHEET_ID = "1-kOscezmiqWkWtQ1eEy1yjMYmQLu3EoRbX7RwCe_yVc";
 
 const db = require("../db");
 
@@ -11,29 +11,13 @@ exports.getPostDeployCount = async (term) => {
     SELECT COALESCE(COUNT(*), 0) AS post_deployment_interns
     FROM practrack."Students"
     WHERE "ojtPhase" = 'Post-Deployment'
+    OR "ojtPhase" = 'Completed'
     AND "AcademicTerm" = $1;
   `;
   const params = [term];
   const { rows } = await db.query(query, params);
   return rows[0];
 };
-
-/*
-exports.getPostDeployNames = async (term) => {
-  const query = `
-    SELECT u."lastName", u."firstName"
-    FROM practrack."Users" u
-    JOIN practrack."Students" s ON s."userID" = u."userID"
-    WHERE s."ojtPhase" = 'Post-Deployment'
-    AND s."AcademicTerm" = $1
-    GROUP BY u."lastName", u."firstName"
-    ORDER BY u."lastName", u."firstName";
-  `;
-  const params = [term];
-  const { rows } = await db.query(query, params);
-  return rows;
-};
-*/
 
 exports.getEvalStats = async (term) => {
   // For Line Chart and Table
@@ -69,7 +53,7 @@ exports.getEvalStats = async (term) => {
     // Fetch the data from the Google Sheet
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: RESPONSES_SHEET_ID,
-      range: "Form Responses 1!E:G",
+      range: "Form Responses 1!F:H",
     });
 
     const values = response.data.values;
@@ -184,17 +168,17 @@ exports.getEvalScores = async () => {
     // Fetch the data from the Google Sheet
     const resRelevance = await sheets.spreadsheets.values.get({
       spreadsheetId: RESPONSES_SHEET_ID,
-      range: "Summarization!G2:G",
+      range: "Summarization!F2:F",
     });
 
     const resScope = await sheets.spreadsheets.values.get({
       spreadsheetId: RESPONSES_SHEET_ID,
-      range: "Summarization!K2:K",
+      range: "Summarization!M2:M",
     });
 
     const resDev = await sheets.spreadsheets.values.get({
       spreadsheetId: RESPONSES_SHEET_ID,
-      range: "Summarization!M2:M",
+      range: "Summarization!Z2:Z",
     });
 
     // Get grades
@@ -256,7 +240,7 @@ exports.getEvalCounts = async (term) => {
     // Fetch the data from the Google Sheet
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: RESPONSES_SHEET_ID,
-      range: "Form Responses 1!E:G",
+      range: "Form Responses 1!F:H",
     });
 
     const values = response.data.values;

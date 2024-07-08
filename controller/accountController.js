@@ -63,7 +63,6 @@ exports.getEmail = async (req, res) => {
 exports.setStudent = async (req, res) => {
   try {
     const userID = req.params.userID;
-    console.log(userID);
     await AccountService.setStudent(userID);
     res.status(200).json({ message: "Student claim added." });
   } catch (error) {
@@ -75,12 +74,24 @@ exports.getUsersWithPhase = async (req, res) => {
   try {
     const getUsersWithPhase = await AccountService.getUsersWithPhase();
     const getUnchecked = await DocumentService.getUnchecked();
-    console.log(getUsersWithPhase);
     res.json({ users: getUsersWithPhase, unchecked: getUnchecked });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
+
+exports.getUsersWithSpecificPhase = async (req, res) => {
+  try {
+    const getUsersWithPhase = await AccountService.getUsersWithSpecificPhase(
+      req.params.phase
+    );
+    const getUnchecked = await DocumentService.getUnchecked();
+    res.json({ users: getUsersWithPhase, unchecked: getUnchecked });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 exports.createCoordinator = async (req, res) => {
   try {
     const createCoordinator = await AccountService.createCoordinator({
@@ -96,7 +107,6 @@ exports.turnoverCoordinator = async (req, res) => {
     const registerCoordinator = await AccountService.registerCoordinator({
       ...req.body,
     });
-    console.log(req.body.userID);
     const setCoordinator = await AccountService.setCoordinator(req.body.userID);
     res.json({ registerCoor: registerCoordinator });
   } catch (error) {
@@ -107,7 +117,6 @@ exports.getCurrentUsersWithPhase = async (req, res) => {
   try {
     const getCurrentUsersWithPhase =
       await AccountService.getCurrentUsersWithPhase(req.params.userID);
-    console.log(getCurrentUsersWithPhase);
     res.json(getCurrentUsersWithPhase);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -130,6 +139,24 @@ exports.getUserByRole = async (req, res) => {
       req.params.role
     );
     res.json(users);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.saveCriteria = async (req, res) => {
+  try {
+    const save = await AccountService.saveCriteria(req.params.userId, req.body);
+    res.json(save);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.getCriteria = async (req, res) => {
+  try {
+    const get = await AccountService.getCriteria(req.params.userId);
+    res.json(get);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

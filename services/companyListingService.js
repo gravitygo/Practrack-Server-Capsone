@@ -28,6 +28,7 @@ exports.addCompany = async ({
   addrCity,
   jobPositions,
   workSetup,
+  hasAllowance,
 }) => {
   const query = `
     INSERT INTO "practrack"."CompanyList" (
@@ -42,11 +43,11 @@ exports.addCompany = async ({
       "addrRegion",
       "addrProvince",
       "addrCity",
-      "workSetup"
+      "workSetup",
+      "hasAllowance"
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, now(), $8, $9, $10, $11);
+    VALUES ($1, $2, $3, $4, $5 AT TIME ZONE 'Asia/Singapore', $6, $7, now(), $8, $9, $10, $11, $12);
   `;
-
   const params = [
     companyName,
     pointOfContact,
@@ -59,9 +60,20 @@ exports.addCompany = async ({
     addrProvince,
     addrCity,
     workSetup,
+    hasAllowance,
   ];
 
   const { rows: insertedCompany } = await db.query(query, params);
+
+  // Select CompanyID
+  const getID = `
+    SELECT *
+    FROM practrack."CompanyList"
+    ORDER BY "companyID" DESC
+    LIMIT 1;`;
+
+  const { rows: cid } = await db.query(getID);
+  const companyID = cid[0].companyID;
 
   const insertedJobs = [];
   if (!Array.isArray(jobPositions)) {
@@ -71,13 +83,13 @@ exports.addCompany = async ({
   for (const jobPosition of jobPositions) {
     const query2 = `
         INSERT INTO "practrack"."CompanyJobs" (
-          "companyName",
+          "companyID",
           "jobID"
         )
         VALUES ($1, $2);
       `;
 
-    const params2 = [companyName, jobPosition];
+    const params2 = [companyID, jobPosition];
 
     const { rows } = await db.query(query2, params2);
     insertedJobs.push(rows[0]); // Assuming only one row is inserted per iteration
@@ -86,27 +98,26 @@ exports.addCompany = async ({
   return { insertedCompany, insertedJobs };
 };
 
-//TO UPDATE: No workSetup yet
 exports.viewCompanyModal = async ({ companyID }) => {
   const query = `
   SELECT * 
   FROM "practrack"."CompanyList" "c"
   LEFT JOIN (
     SELECT  
-    "cj"."companyName",
+    "cj"."companyID",
     jsonb_agg(
         jsonb_build_object(
           'jobTitle', "jl"."jobTitle",
           'jobID', "cj"."jobID"
-        ) ORDER BY "cj"."companyName"
+        ) ORDER BY "cj"."companyID"
     ) AS "jobList"
     FROM   "practrack"."CompanyJobs" "cj"
     JOIN
     "practrack"."JobList" "jl" ON "cj"."jobID" = "jl"."jobID"
-    GROUP by "cj"."companyName"
-    ) "cj" ON "cj"."companyName" = "c"."companyName"
+    GROUP by "cj"."companyID"
+    ) "cj" ON "cj"."companyID" = "c"."companyID"
   WHERE
-    "companyID" = $1;`;
+    "c"."companyID" = $1;`;
   const params = [companyID];
   const { rows } = await db.query(query, params);
   return rows;
@@ -127,6 +138,7 @@ exports.saveCompany = async ({
   addrCity,
   jobPositions,
   workSetup,
+  hasAllowance,
 }) => {
   const query = `
     UPDATE "practrack"."CompanyList"
@@ -141,7 +153,8 @@ exports.saveCompany = async ({
         "addrRegion" = $8,
         "addrProvince" = $9,
         "addrCity" = $10,
-        "workSetup" = $11
+        "workSetup" = $11,
+        "hasAllowance" = $13
     WHERE "companyID" = $12;
   `;
   const params = [
@@ -157,15 +170,16 @@ exports.saveCompany = async ({
     addrCity,
     workSetup,
     companyID,
+    hasAllowance,
   ];
 
   // Deleting first all preexisting jobs
   const deleteQuery = `
   DELETE FROM "practrack"."CompanyJobs"
   WHERE
-    "companyName" = $1;`;
+    "companyID" = $1;`;
 
-  const deleteParams = [companyName];
+  const deleteParams = [companyID];
 
   const { rows: row1 } = await db.query(query, params);
   const { rows: row2 } = await db.query(deleteQuery, deleteParams);
@@ -179,13 +193,13 @@ exports.saveCompany = async ({
   for (const jobPosition of jobPositions) {
     const query2 = `
         INSERT INTO "practrack"."CompanyJobs" (
-          "companyName",
+          "companyID",
           "jobID"
         )
         VALUES ($1, $2);
       `;
 
-    const params2 = [companyName, jobPosition];
+    const params2 = [companyID, jobPosition];
 
     const { rows } = await db.query(query2, params2);
     insertedJobs.push(rows[0]); // Assuming only one row is inserted per iteration
@@ -196,32 +210,53 @@ exports.saveCompany = async ({
 
 // DELETE query for company
 exports.deleteCompany = async ({ companyID, uid }) => {
-  const query = `
+  // Check  company first if there are existing records in Student & Chatrooms
+  // Related Students
+  const checkStudents = `
+  SELECT s."userID", CONCAT(u."firstName",' ', u."lastName") AS fullName, s."degreeCode"
+    FROM "practrack"."Students" s
+    JOIN "practrack"."CompanyList" cl ON cl."companyID" = s."companyID"
+    JOIN "practrack"."Users" u ON s."userID" = u."userID"
+    WHERE cl."companyID" = $1
+    AND s."ojtPhase" NOT LIKE 'Completed'
+`;
+  const params = [companyID];
+  const { rows: students } = await db.query(checkStudents, params);
+  // console.log("Students deployed: " + students.length); // student count
+
+  // Related Chatrooms
+  const checkChats = `
+  SELECT  CONCAT(cl."companyName", ' ', l."value") AS groupName
+    FROM "practrack"."ChatRooms" cr
+    JOIN "practrack"."CompanyList" cl ON cl."companyID" = cr."mainID"
+    JOIN "practrack"."Lookup" l ON cr."batch" = l."lookupID"
+    JOIN "practrack"."Students" s ON cl."companyID" = s."companyID"
+    JOIN "practrack"."Users" u ON s."userID" = u."userID"
+    WHERE cl."companyID" = $1
+    AND s."ojtPhase" NOT LIKE 'Completed'
+    GROUP BY groupName
+  `;
+  const { rows: chats } = await db.query(checkChats, params);
+  // console.log("Chats active: " + chats.length); // chats count
+
+  if (students.length > 0 || chats.length > 0) {
+    return { students, chats };
+  } else {
+    const query = `
     DELETE FROM "practrack"."CompanyList"
     WHERE
       "companyID" = $1;
   `;
-  const query2 = `
+    const query2 = `
   DELETE FROM "practrack"."CompanyJobs" "cj"
   USING "practrack"."CompanyList" "cl"
-  WHERE "cj"."companyName" = "cl"."companyName"
+  WHERE "cj"."companyID" = "cl"."companyID"
   AND "cl"."companyID" = $1;
   `;
-  const params = [companyID];
-
-  const audit_query = `
-  UPDATE "practrack"."audit_CompanyList"
-  SET "changeUserID" = $1
-  WHERE "companyID" = $2
-  AND "changeType" = 'DELETE'; 
-  `;
-  const audit_params = [uid, companyID];
-
-  const { rows: row2 } = await db.query(query2, params);
-  const { rows: row1 } = await db.query(query, params);
-  await db.query(audit_query, audit_params);
-
-  return { row1, row2 };
+    const { rows: row1 } = await db.query(query, params);
+    const { rows: row2 } = await db.query(query2, params);
+    return { row1, row2, students, chats };
+  }
 };
 
 // GET company details from DB
@@ -237,24 +272,24 @@ exports.viewCompanyList = async () => {
     "practrack"."CompanyList" "c"
   LEFT JOIN (
     SELECT  
-    "cj"."companyName",
+    "cj"."companyID",
     jsonb_agg(
         jsonb_build_object(
           'jobTitle', "jl"."jobTitle",
           'jobID', "cj"."jobID"
-        ) ORDER BY "cj"."companyName"
+        ) ORDER BY "cj"."companyID"
     ) AS "jobList"
     FROM   "practrack"."CompanyJobs" "cj"
     JOIN
     "practrack"."JobList" "jl" ON "cj"."jobID" = "jl"."jobID"
-    GROUP by "cj"."companyName"
-    ) "cj" ON "cj"."companyName" = "c"."companyName"
+    GROUP by "cj"."companyID"
+    ) "cj" ON "cj"."companyID" = "c"."companyID"
   LEFT JOIN
     "practrack"."FieldOfInterest" "f" ON "c"."natureOfCompany" = "f"."fieldID"
   JOIN
     "practrack"."Lookup" "l" ON "c"."workSetup" = "l"."lookupID"
   ORDER BY
-    "c"."companyName" ASC`;
+    LOWER("c"."companyName") ASC`;
   const { rows } = await db.query(query);
   return rows;
 };

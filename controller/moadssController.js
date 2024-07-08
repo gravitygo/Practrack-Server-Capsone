@@ -3,9 +3,18 @@ const MoaDSSService = require("../services/moadssService");
 exports.viewMOA = async (req, res) => {
   try {
     const coorID = req.params.coorID;
-    const data = await MoaDSSService.viewMOA({ coorID });
+    const coorConfig = await MoaDSSService.getCoorConfig({ coorID });
+    const companies = await MoaDSSService.getCompanies();
     const companyDB = await MoaDSSService.getCompaniesDB();
-    res.json({ data, companyDB });
+    let dssArray = null;
+
+    if (coorConfig.q1 != null) {
+      dssArray = await MoaDSSService.computeDSS({
+        companies,
+        coorConfig,
+      });
+    }
+    res.json({ coorConfig, companyDB, dssArray });
   } catch (error) {
     res.status(500).json({ message: "Internal server error" });
   }
@@ -13,7 +22,7 @@ exports.viewMOA = async (req, res) => {
 
 exports.checkConfig = async (req, res) => {
   try {
-    const dssArray = await MoaDSSService.computeDSS({ ...req.body });
+    const dssArray = await MoaDSSService.computeDSSConfigure({ ...req.body });
     res.json({ dssArray });
   } catch (error) {
     res.status(500).json({ message: "Internal server error", ...req.body });
@@ -49,8 +58,6 @@ exports.getCompanies = async (req, res) => {
   try {
     const companies = await MoaDSSService.getCompanies();
     const companyDB = await MoaDSSService.getCompaniesDB();
-
-    // console.log("Data retrieved from Google Sheets:", companies);
     res.json({ companies, companyDB });
   } catch (error) {
     console.error("Error fetching companies:", error);

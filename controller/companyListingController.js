@@ -22,8 +22,6 @@ exports.viewCompanyList = async (req, res) => {
 
 exports.addCompanyListing = async (req, res) => {
   try {
-    console.log("From companylistingController.js");
-    console.log(req.body);
     const newCompanyListing = await CompanyListingService.addCompany(req.body);
     res.json({ addCompany: newCompanyListing });
   } catch (error) {
@@ -35,7 +33,6 @@ exports.addCompanyListing = async (req, res) => {
 exports.viewCompanyModal = async (req, res) => {
   try {
     const companyID = req.params.companyID;
-    console.log("from controller" + companyID);
     const viewCompanyModal = await CompanyListingService.viewCompanyModal({
       companyID,
     });

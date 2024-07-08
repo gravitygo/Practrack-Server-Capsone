@@ -5,6 +5,7 @@ exports.getCurrentTerm = async () => {
       SELECT "lookupID", value
       FROM practrack."Lookup"
       WHERE type = 'academicTerm'
+      AND "isActive" = true
       ORDER BY "lookupID" DESC
       LIMIT 1;
     `;
